@@ -25,6 +25,7 @@
 .dark {
   --background:        hsl(24 16% 9%);
   --card:              hsl(26 15% 12%);
+  --primary:           hsl(20 70% 65%);
   --foreground:        hsl(38 28% 92%);
   --card-foreground:   hsl(38 28% 92%);
   --primary-foreground:hsl(26 30% 12%);
@@ -68,7 +69,7 @@ body {
 
 /* ── Page heads ──────────────────────────────────────────────── */
 .k-page { display: flex; flex-direction: column; gap: 18px; }
-.k-page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.k-page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
 .k-page-title { font-size: 25px; font-weight: 700; margin: 0 0 3px; line-height: 1.2; letter-spacing: -0.02em; }
 .k-page-sub { font-size: 14px; color: var(--muted-foreground); margin: 0; }
 
@@ -263,7 +264,8 @@ body {
 
   /* Page head: stack title block and lock button */
   .k-page-head { flex-direction: column; align-items: stretch; }
-  .k-lock-btn { width: 100%; justify-content: center; }
+  .k-round-switch-actions { margin-left: 0; width: 100%; }
+  .k-round-switch-actions > * { flex: 1; justify-content: center; }
 
   .k-grid { grid-template-columns: 1fr; }
   .k-page-title { font-size: 22px; }
@@ -287,13 +289,14 @@ body {
 .k-stat-num.accent { color: var(--primary); }
 .k-stat-label { font-size: 12.5px; color: var(--muted-foreground); margin-top: 3px; }
 
-.k-admin-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.k-admin-bar { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 10px; }
 .k-section-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted-foreground); margin: 0; }
 
 /* Round switcher on Bestillinger */
 .k-round-switch { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 7px; }
 .k-select-wrap { position: relative; display: inline-flex; align-items: center; }
-.k-select { appearance: none; -webkit-appearance: none; font-family: inherit; font-size: 14px; font-weight: 600; color: var(--foreground); background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 8px 36px 8px 13px; cursor: pointer; outline: none; transition: border-color .15s, box-shadow .15s; }
+.k-select { appearance: none; -webkit-appearance: none; font-family: inherit; font-size: 13px; font-weight: 600; color: var(--foreground); background: var(--card); border: 1px solid var(--border); border-radius: 7px; height: 34px; padding: 0 32px 0 12px; cursor: pointer; outline: none; transition: border-color .15s, box-shadow .15s; }
+.k-round-switch-actions { margin-left: auto; display: flex; gap: 8px; }
 .k-select:hover { border-color: color-mix(in srgb, var(--primary) 35%, var(--border)); }
 .k-select:focus { border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 18%, transparent); }
 .k-select-wrap > svg { position: absolute; right: 11px; pointer-events: none; color: var(--muted-foreground); }
@@ -411,5 +414,5 @@ body {
   .print-member-line { display: flex; align-items: center; gap: 10px; padding: 4px 0; font-size: 13px; }
   .print-check { width: 15px; height: 15px; border: 1.5px solid #000; border-radius: 3px; flex-shrink: 0; }
   .print-line-name { flex: 1; }
-  .print-foot { margin-top: 22px; font-size: 11px; color: #555; border-top: 1px solid #ccc; padding-top: 8px; }
+  .print-foot { margin-top: 22px; font-size: 11px; color: #555; }
 }

@@ -8,7 +8,7 @@ import { Card, CardContent, Badge, Button, Input, Label, Stepper } from './ui'
 import {
   IconPlus, IconEdit, IconTrash, IconPrinter, IconCheck, IconClock,
   IconCalendar, IconChevronDown, IconPhone, IconMail, IconBack,
-  IconLock, IconRepeat, IconUsers, IconReceipt,
+  IconLock, IconRepeat, IconUsers, IconReceipt, IconCopy, LogoSmall,
 } from './icons'
 
 // ── helpers ──────────────────────────────────────────────────────
@@ -47,12 +47,20 @@ function RoundSwitcher({ rounds, roundId, setRoundId }: { rounds: Round[]; round
 
 // ── MemberCard (orders view) ──────────────────────────────────────
 
-function MemberCard({ order, catalog, round, paid, onTogglePaid, onSaveItems, onDelete }: {
-  order: MemberOrder; catalog: Coffee[]; round: Round | null; paid: boolean
+function MemberCard({ order, catalog, round, paid, phone, onTogglePaid, onSaveItems, onDelete }: {
+  order: MemberOrder; catalog: Coffee[]; round: Round | null; paid: boolean; phone?: string
   onTogglePaid: () => void
   onSaveItems: (orderId: string, items: Record<string, number>) => Promise<void>
   onDelete: (orderId: string) => Promise<void>
 }) {
+  const [copied, setCopied] = useState(false)
+  const copyPhone = (e: React.MouseEvent | React.KeyboardEvent) => {
+    e.stopPropagation()
+    if (!phone) return
+    void navigator.clipboard.writeText('+' + normalizePhone(phone))
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1200)
+  }
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState<Record<string, number>>(order.items)
@@ -103,7 +111,24 @@ function MemberCard({ order, catalog, round, paid, onTogglePaid, onSaveItems, on
       <button className="k-member-head" onClick={() => setOpen((o) => !o)}>
         <div className="k-avatar">{initials(order.member)}</div>
         <div className="k-member-meta">
-          <span className="k-member-name">{order.member}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span className="k-member-name">{order.member}</span>
+            {phone && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <span className="k-member-phone" style={{ marginTop: 0 }}>{formatPhone(phone)}</span>
+                <button
+                  type="button"
+                  className="k-iconbtn"
+                  style={{ width: 26, height: 26 }}
+                  title={copied ? 'Kopiert!' : 'Kopier telefonnummer'}
+                  onClick={copyPhone}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') copyPhone(e) }}
+                >
+                  {copied ? <IconCheck size={13} /> : <IconCopy size={13} />}
+                </button>
+              </span>
+            )}
+          </div>
           <span className="k-member-sub">{bags} {bags === 1 ? 'pose' : 'poser'} · bestilte {order.placed_at}</span>
         </div>
         <span
@@ -290,12 +315,16 @@ function OrdersView({ rounds, roundId, setRoundId, members, ordersForRound, cata
 
           <p className="k-section-label" style={{ marginTop: 4 }}>Per medlem</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {orders.map((o) => (
+            {orders.map((o) => {
+              const m = members.find((x) => x.email === o.email) ?? members.find((x) => x.name === o.member)
+              return (
               <MemberCard key={o.id} order={o} catalog={catalog} round={round ?? null}
-                paid={o.paid} onTogglePaid={() => toggleOrderPaid(o.id, !o.paid, round.id)}
+                paid={o.paid} phone={m?.phone}
+                onTogglePaid={() => toggleOrderPaid(o.id, !o.paid, round.id)}
                 onSaveItems={(orderId, items) => saveOrderItems(orderId, items, round.id)}
                 onDelete={(orderId) => deleteOrder(orderId, round.id)} />
-            ))}
+              )
+            })}
           </div>
 
           {missing.length > 0 && (
@@ -439,8 +468,8 @@ function CatalogManager({ rounds, roundId, setRoundId, catalogForRound, saveCata
         </div>
         {editId === null && !importing && (
           <div style={{ display: 'flex', gap: 8 }}>
-            <Button variant="outline" onClick={() => setImporting(true)}>Importer fra liste</Button>
-            <Button onClick={startAdd}><IconPlus size={16} /> Legg til kaffe</Button>
+            <Button variant="outline" size="sm" onClick={() => setImporting(true)}>Importer fra liste</Button>
+            <Button size="sm" onClick={startAdd}><IconPlus size={14} /> Legg til kaffe</Button>
           </div>
         )}
       </div>
@@ -741,9 +770,14 @@ function RoundsManager({ rounds, setRounds, ordersForRound, catalogForRound, sav
 
   return (
     <div className="k-page">
-      <div className="k-admin-bar">
-        <div><h1 className="k-page-title">Runder</h1><p className="k-page-sub">Opprett og styr bestillingsrunder</p></div>
-        {editId === null && <Button onClick={startAdd}><IconPlus size={16} /> Ny runde</Button>}
+      <div className="k-page-head"><h1 className="k-page-title">Runder</h1></div>
+      <div className="k-round-switch">
+        <p className="k-page-sub" style={{ margin: 0 }}>Opprett og styr bestillingsrunder</p>
+        {editId === null && (
+          <div className="k-round-switch-actions">
+            <Button size="sm" onClick={startAdd}><IconPlus size={14} /> Ny runde</Button>
+          </div>
+        )}
       </div>
 
       {isNew && draft && (
@@ -833,12 +867,14 @@ function MembersManager({ members, setMembers }: { members: Member[]; setMembers
 
   return (
     <div className="k-page">
-      <div className="k-admin-bar">
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h1 className="k-page-title">Medlemmer</h1>
-          <p className="k-page-sub">{members.length} {members.length === 1 ? 'registrert medlem' : 'registrerte medlemmer'}</p>
-        </div>
-        {editId === null && <Button onClick={startAdd}><IconPlus size={16} /> Legg til medlem</Button>}
+      <div className="k-page-head"><h1 className="k-page-title">Medlemmer</h1></div>
+      <div className="k-round-switch">
+        <p className="k-page-sub" style={{ margin: 0 }}>{members.length} {members.length === 1 ? 'registrert medlem' : 'registrerte medlemmer'}</p>
+        {editId === null && (
+          <div className="k-round-switch-actions">
+            <Button size="sm" onClick={startAdd}><IconPlus size={14} /> Legg til medlem</Button>
+          </div>
+        )}
       </div>
 
       {editId && draft && !members.some((m) => m.id === editId) && (
@@ -982,7 +1018,7 @@ export default function AdminScreen({ rounds, setRounds, members, setMembers, or
           <div className="k-header-inner">
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <button className="k-logo" onClick={onBack} aria-label="CYBER Kaffi Lovers">
-                <img src="/logo-small.svg" alt="CYBER Kaffi Lovers" style={{ height: 30, width: 'auto', display: 'block' }} />
+                <LogoSmall height={30} />
               </button>
               <span className="k-admin-tag">Admin</span>
             </div>

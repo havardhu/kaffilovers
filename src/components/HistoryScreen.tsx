@@ -97,7 +97,6 @@ export default function HistoryScreen({ currentOrder, pastOrders, getCatalog, ge
       <div className="k-page-head">
         <div>
           <h1 className="k-page-title">Mine bestillinger</h1>
-          <p className="k-page-sub">Tidligere runder i lauget</p>
         </div>
       </div>
 
