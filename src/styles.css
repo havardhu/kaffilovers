@@ -236,6 +236,35 @@ body {
 
 /* ── Mobile ──────────────────────────────────────────────────── */
 @media (max-width: 600px) {
+  /* Admin bar: stack vertically, buttons full-width */
+  .k-admin-bar { flex-direction: column; align-items: stretch; }
+  .k-admin-bar > div:last-child { display: flex; flex-wrap: wrap; gap: 8px; }
+  .k-admin-bar > div:last-child > * { flex: 1; justify-content: center; }
+
+  /* Header: two-row layout */
+  .k-header-inner {
+    height: auto;
+    flex-wrap: wrap;
+    padding: 8px 12px 6px;
+    gap: 0;
+    row-gap: 2px;
+  }
+  .k-logo { order: 1; }
+  .k-header-actions { order: 2; margin-left: auto; }
+  .k-nav {
+    order: 3;
+    width: 100%;
+    border-top: 1px solid var(--border);
+    margin: 4px -12px 0;
+    padding: 4px 8px 2px;
+    gap: 2px;
+  }
+  .k-nav-link { padding: 6px 10px; font-size: 13px; }
+
+  /* Page head: stack title block and lock button */
+  .k-page-head { flex-direction: column; align-items: stretch; }
+  .k-lock-btn { width: 100%; justify-content: center; }
+
   .k-grid { grid-template-columns: 1fr; }
   .k-page-title { font-size: 22px; }
   .k-logo-mark { width: 132px; height: 26px; }
