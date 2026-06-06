@@ -1,0 +1,18 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+supabase/.temp/
+
+# env files
+.env.local
+.env*.local
+
+# editor
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
