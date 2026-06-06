@@ -130,10 +130,14 @@ export function LogoLarge({ style, className }: { style?: React.CSSProperties; c
         <textPath href="#ckl-bottom-arc" startOffset="50%" textAnchor="middle">DEFEND · BREW · REPEAT</textPath>
       </text>
       <g fill="#a8502e" opacity="0.7">
+        <animateTransform attributeName="transform" type="rotate" from="0 240 240" to="360 240 240" dur="60s" repeatCount="indefinite"/>
         <circle cx="240" cy="30" r="3"/><circle cx="240" cy="450" r="3"/>
         <circle cx="30" cy="240" r="3"/><circle cx="450" cy="240" r="3"/>
-        <circle cx="103" cy="93" r="2"/><circle cx="377" cy="93" r="2"/>
-        <circle cx="103" cy="387" r="2"/><circle cx="377" cy="387" r="2"/>
+      </g>
+      <g fill="#a8502e" opacity="0.7">
+        <animateTransform attributeName="transform" type="rotate" from="0 240 240" to="-360 240 240" dur="60s" repeatCount="indefinite"/>
+        <circle cx="102" cy="102" r="2"/><circle cx="378" cy="102" r="2"/>
+        <circle cx="102" cy="378" r="2"/><circle cx="378" cy="378" r="2"/>
       </g>
     </svg>
   )
