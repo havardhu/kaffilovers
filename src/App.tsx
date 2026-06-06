@@ -7,7 +7,7 @@ import LoginScreen from './components/LoginScreen'
 import CatalogScreen from './components/CatalogScreen'
 import HistoryScreen from './components/HistoryScreen'
 import AdminScreen from './components/AdminScreen'
-import { IconMoon, IconSun } from './components/icons'
+import { IconMoon, IconSun, LogoSmall } from './components/icons'
 import './styles.css'
 
 type View = 'catalog' | 'history' | 'admin'
@@ -271,7 +271,7 @@ export default function App() {
 
   if (!authed) {
     return (
-      <div className={'k-app' + (dark ? ' dark' : '')} style={{ '--primary': '#a8502e', '--ring': '#a8502e' } as React.CSSProperties}>
+      <div className={'k-app' + (dark ? ' dark' : '')}>
         <LoginScreen onLogin={() => { setAuthed(true); goto('catalog') }} />
       </div>
     )
@@ -279,7 +279,7 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className={'k-app' + (dark ? ' dark' : '')} style={{ '--primary': '#a8502e', '--ring': '#a8502e' } as React.CSSProperties}>
+      <div className={'k-app' + (dark ? ' dark' : '')}>
         <main className="k-main" style={{ textAlign: 'center', padding: 40, color: 'var(--muted-foreground)' }}>
           Laster…
         </main>
@@ -291,7 +291,7 @@ export default function App() {
   // the auth trigger, but guard anyway.
   if (!currentMember) {
     return (
-      <div className={'k-app' + (dark ? ' dark' : '')} style={{ '--primary': '#a8502e', '--ring': '#a8502e' } as React.CSSProperties}>
+      <div className={'k-app' + (dark ? ' dark' : '')}>
         <main className="k-main" style={{ textAlign: 'center', padding: 40 }}>
           <h2>Velkommen!</h2>
           <p style={{ color: 'var(--muted-foreground)' }}>
@@ -306,7 +306,7 @@ export default function App() {
 
   if (view === 'admin' && isAdmin) {
     return (
-      <div className={'k-app' + (dark ? ' dark' : '')} style={{ '--primary': '#a8502e', '--ring': '#a8502e' } as React.CSSProperties}>
+      <div className={'k-app' + (dark ? ' dark' : '')}>
         <AdminScreen
           rounds={rounds} setRounds={adminSetRounds}
           members={members} setMembers={adminSetMembers}
@@ -324,11 +324,11 @@ export default function App() {
   }
 
   return (
-    <div className={'k-app' + (dark ? ' dark' : '')} style={{ '--primary': '#a8502e', '--ring': '#a8502e' } as React.CSSProperties}>
-      <header className="k-header">
+    <div className={'k-app' + (dark ? ' dark' : '')}>
+      <header className="k-header no-print">
         <div className="k-header-inner">
           <button className="k-logo" onClick={() => goto('catalog')} aria-label="CYBER Kaffi Lovers">
-            <img src="/logo-small.svg" alt="CYBER Kaffi Lovers" style={{ height: 30, width: 'auto', display: 'block' }} />
+            <LogoSmall height={30} />
           </button>
           <nav className="k-nav">
             <button className={'k-nav-link' + (view === 'catalog' ? ' active' : '')} onClick={() => goto('catalog')}>Bestilling</button>
@@ -373,7 +373,7 @@ export default function App() {
         )}
       </main>
 
-      <footer className="k-footer">
+      <footer className="k-footer no-print">
         <span>CYBER Kaffi Lovers · {new Date().getFullYear()}</span>
       </footer>
     </div>

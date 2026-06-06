@@ -1,9 +1,9 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { Coffee, Round, Cart } from '../lib/types'
 import { ROUND_BADGE } from '../lib/types'
 import { fmtPrice, priceBreakdown, priceIncVat } from '../lib/utils'
 import { Card, Badge, Button, Stepper } from './ui'
-import { IconCoffee, IconClock, IconLock, IconEdit, IconCheck, IconRepeat, IconChevronDown, IconTrash } from './icons'
+import { IconCoffee, IconClock, IconLock, IconEdit, IconCheck, IconRepeat, IconChevronDown, IconTrash, IconPrinter } from './icons'
 
 function LastBadge({ qty }: { qty: number }) {
   return (
@@ -118,6 +118,11 @@ export default function CatalogScreen({
   catalogForRound,
 }: Props) {
   const lines = useMemo(() => Object.values(cart).reduce((a, b) => a + b, 0), [cart])
+  const [printing, setPrinting] = useState(false)
+  const printCatalog = () => {
+    setPrinting(true)
+    setTimeout(() => { window.print(); setTimeout(() => setPrinting(false), 500) }, 100)
+  }
 
   if (!rounds || rounds.length === 0) {
     return (
@@ -154,38 +159,72 @@ export default function CatalogScreen({
 
   const bd = (isOpen && lines > 0) ? priceBreakdown(cart, items, round) : null
 
+  const today = new Date().toLocaleDateString('nb-NO', { day: 'numeric', month: 'long', year: 'numeric' })
+
   return (
-    <div className="k-page">
+    <>
+    <div className={'print-doc' + (printing ? ' active' : '')}>
+      <div className="print-head">
+        <h1 className="print-h1">Katalog</h1>
+        <div className="print-meta">Skrevet ut {today}<br/>Frist {round.deadline}</div>
+      </div>
+      <table className="print-table">
+        <colgroup>
+          <col style={{ width: '30%' }} />
+          <col />
+          <col style={{ width: '70px' }} />
+          <col style={{ width: '80px' }} />
+          <col style={{ width: '70px' }} />
+        </colgroup>
+        <thead><tr><th>Kaffe</th><th>Smaksnoter</th><th className="num">Vekt</th><th className="num">Pris</th><th className="num">Antall</th></tr></thead>
+        <tbody>
+          {items.map((c) => (
+            <tr key={c.id}>
+              <td><strong>{c.name}</strong></td>
+              <td className="print-sub">{c.notes}</td>
+              <td className="num" style={{ whiteSpace: 'nowrap' }}>{c.weight}</td>
+              <td className="num" style={{ whiteSpace: 'nowrap' }}>{fmtPrice(priceIncVat(c.price, round.vat_rate))}</td>
+              <td className="num"></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="print-foot">Priser inkl. {round.vat_rate || 0} % mva{round.admin_fee ? ` · ${round.admin_fee} kr/pose adm.gebyr kommer i tillegg` : ''}</div>
+    </div>
+    <div className="k-page no-print">
       <div className="k-page-head">
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h1 className="k-page-title">Bestilling</h1>
-          <div className="k-round-switch">
-            <div className="k-select-wrap">
-              <select className="k-select" value={round.id} onChange={(e) => setRoundId(e.target.value)}>
-                {rounds.map((r) => (
-                  <option key={r.id} value={r.id}>{r.label} — {(ROUND_BADGE[r.status] ?? ROUND_BADGE['planlagt']).label}</option>
-                ))}
-              </select>
-              <IconChevronDown size={16} />
-            </div>
-            <Badge variant={badge.variant}>{badge.label}</Badge>
-          </div>
+        <h1 className="k-page-title">Bestilling</h1>
+      </div>
+      <div className="k-round-switch">
+        <div className="k-select-wrap">
+          <select className="k-select" value={round.id} onChange={(e) => setRoundId(e.target.value)}>
+            {rounds.map((r) => (
+              <option key={r.id} value={r.id}>{r.label} — {(ROUND_BADGE[r.status] ?? ROUND_BADGE['planlagt']).label}</option>
+            ))}
+          </select>
+          <IconChevronDown size={16} />
         </div>
+        <Badge variant={badge.variant}>{badge.label}</Badge>
         {isOpen && isActive && (
-          locked ? (
-            <Button variant="outline" className="k-lock-btn" onClick={onToggleLock}>
-              <IconEdit size={16} /> Lås opp bestilling
+          <div className="k-round-switch-actions">
+            <Button variant="outline" size="sm" onClick={printCatalog}>
+              <IconPrinter size={14} /> Skriv ut katalog
             </Button>
-          ) : lines === 0 && hasExistingOrder ? (
-            <Button variant="outline" className="k-lock-btn" onClick={onDeleteOrder}
-              style={{ color: 'var(--destructive)' }}>
-              <IconTrash size={16} /> Slett bestilling
-            </Button>
-          ) : (
-            <Button className="k-lock-btn" onClick={onToggleLock} disabled={lines === 0}>
-              <IconLock size={16} /> Lås bestilling
-            </Button>
-          )
+            {locked ? (
+              <Button variant="outline" size="sm" className="k-lock-btn" onClick={onToggleLock}>
+                <IconEdit size={14} /> Lås opp bestilling
+              </Button>
+            ) : lines === 0 && hasExistingOrder ? (
+              <Button variant="outline" size="sm" className="k-lock-btn" onClick={onDeleteOrder}
+                style={{ color: 'var(--destructive)' }}>
+                <IconTrash size={14} /> Slett bestilling
+              </Button>
+            ) : (
+              <Button size="sm" className="k-lock-btn" onClick={onToggleLock} disabled={lines === 0}>
+                <IconLock size={14} /> Lås bestilling
+              </Button>
+            )}
+          </div>
         )}
       </div>
 
@@ -257,5 +296,6 @@ export default function CatalogScreen({
                 : 'Trykk «Legg til» for å begynne bestillingen.')}
       </p>
     </div>
+    </>
   )
 }

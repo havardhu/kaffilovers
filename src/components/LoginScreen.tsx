@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { Card, CardHeader, CardContent, Button, Input, Label } from './ui'
-import { IconLock } from './icons'
+import { IconLock, LogoLarge } from './icons'
 import { normalizePhone, isValidPhone, formatPhone } from '../lib/phone'
 import Turnstile from './Turnstile'
 
@@ -80,8 +80,7 @@ export default function LoginScreen({ onLogin: _onLogin }: Props) {
         <Card>
           <CardHeader>
             <div style={{ textAlign: 'center' }}>
-              <img src="/logo-large.svg" alt="CYBER Kaffi Lovers"
-                style={{ display: 'block', margin: '0 auto 12px', maxWidth: '100%', height: 'auto' }} />
+              <LogoLarge style={{ display: 'block', margin: '0 auto 12px', maxWidth: '100%', height: 'auto' }} />
             </div>
           </CardHeader>
           <CardContent>
