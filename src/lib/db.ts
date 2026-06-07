@@ -1,12 +1,12 @@
 import { supabase } from './supabase'
-import type { Coffee, Round, Member, MemberOrder, PastOrder } from './types'
+import type { Coffee, Round, Member, MemberOrder, PastOrder, InvitationCampaign } from './types'
 
 // ─── Members ─────────────────────────────────────────────────────
 
 export async function fetchMembers(): Promise<Member[]> {
   const { data, error } = await supabase
     .from('members')
-    .select('id, name, email, phone, is_admin')
+    .select('id, name, email, phone, is_admin, verified')
     .order('name')
   if (error) throw error
   return data ?? []
@@ -22,10 +22,10 @@ export async function fetchCurrentMember(id: { email?: string | null; phone?: st
   return data
 }
 
-export async function upsertMember(m: Partial<Member> & { name: string; email: string }): Promise<Member> {
+export async function upsertMember(m: Partial<Member> & { name: string }): Promise<Member> {
   // Updating an existing row: a plain table write is enough.
   if (m.id) {
-    const payload = { name: m.name, email: m.email, phone: m.phone ?? '', is_admin: m.is_admin ?? false }
+    const payload = { name: m.name, email: m.email ?? null, phone: m.phone ?? '', is_admin: m.is_admin ?? false }
     const { data, error } = await supabase.from('members').update(payload).eq('id', m.id).select().single()
     if (error) throw error
     return data
@@ -33,7 +33,7 @@ export async function upsertMember(m: Partial<Member> & { name: string; email: s
   // Creating a new member: route through Edge Function so the auth user
   // is created in the same step. The function returns the inserted row.
   const { data, error: fnErr } = await supabase.functions.invoke('admin-create-member', {
-    body: { name: m.name, email: m.email, phone: m.phone ?? '', is_admin: !!m.is_admin },
+    body: { name: m.name, email: m.email ?? null, phone: m.phone ?? '', is_admin: !!m.is_admin },
   })
   if (fnErr) throw fnErr
   if (!data?.member) throw new Error(data?.error ?? 'create_failed')
@@ -43,6 +43,67 @@ export async function upsertMember(m: Partial<Member> & { name: string; email: s
 export async function deleteMember(id: string): Promise<void> {
   const { error } = await supabase.from('members').delete().eq('id', id)
   if (error) throw error
+}
+
+// ─── Invitation campaigns ────────────────────────────────────────
+
+export async function fetchCampaigns(): Promise<InvitationCampaign[]> {
+  const { data, error } = await supabase
+    .from('invitation_campaigns')
+    .select('id, name, password, expires_at, created_at')
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data ?? []
+}
+
+export async function createCampaign(c: { name: string; password: string; expires_at: string }): Promise<InvitationCampaign> {
+  const { data, error } = await supabase
+    .from('invitation_campaigns')
+    .insert({ name: c.name, password: c.password, expires_at: c.expires_at })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteCampaign(id: string): Promise<void> {
+  const { error } = await supabase.from('invitation_campaigns').delete().eq('id', id)
+  if (error) throw error
+}
+
+// Public (unauthenticated) campaign details for the invite landing page.
+export interface InviteInfo { name: string; expires_at: string; expired: boolean }
+export async function fetchInviteInfo(campaignId: string): Promise<InviteInfo> {
+  const { data, error } = await supabase.functions.invoke('redeem-invitation', {
+    body: { action: 'info', campaign_id: campaignId },
+  })
+  if (error) throw error
+  if (data?.error) throw new Error(data.error)
+  return data as InviteInfo
+}
+
+// Public (unauthenticated) redemption: validates password + expiry, creates the
+// member. The caller then signs in via phone OTP.
+export async function redeemInvitation(p: { campaignId: string; password: string; name: string; phone: string }): Promise<{ existing: boolean }> {
+  const { data, error } = await supabase.functions.invoke('redeem-invitation', {
+    body: { action: 'redeem', campaign_id: p.campaignId, password: p.password, name: p.name, phone: p.phone },
+  })
+  // Edge-function non-2xx responses surface as a FunctionsHttpError; pull the
+  // server's error code out of the response body so callers can show a precise
+  // message (expired / bad_password / …).
+  if (error) {
+    let code = 'redeem_failed'
+    try {
+      const ctx = (error as { context?: Response }).context
+      if (ctx && typeof ctx.json === 'function') {
+        const j = await ctx.json()
+        if (j?.error) code = j.error
+      }
+    } catch { /* keep generic code */ }
+    throw new Error(code)
+  }
+  if (data?.error) throw new Error(data.error)
+  return { existing: !!data?.existing }
 }
 
 // ─── Rounds ──────────────────────────────────────────────────────

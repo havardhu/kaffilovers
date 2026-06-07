@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './lib/supabase'
 import * as db from './lib/db'
-import type { Coffee, Round, Member, Cart, PastOrder, MemberOrder } from './lib/types'
+import type { Coffee, Round, Member, Cart, PastOrder, MemberOrder, InvitationCampaign } from './lib/types'
 import { load, save } from './lib/utils'
 import LoginScreen from './components/LoginScreen'
+import InviteScreen from './components/InviteScreen'
 import CatalogScreen from './components/CatalogScreen'
 import HistoryScreen from './components/HistoryScreen'
 import AdminScreen from './components/AdminScreen'
-import { IconMoon, IconSun, LogoSmall } from './components/icons'
+import AppHeader from './components/AppHeader'
 import './styles.css'
 
 type View = 'catalog' | 'history' | 'admin'
@@ -24,6 +25,15 @@ export default function App() {
   const [view, setView] = useState<View>(() => load('view', 'catalog'))
   const [dark, setDark] = useState(() => load('dark', false))
 
+  // ── Invitation link (?invite=<campaign-id>) ──
+  const [inviteId, setInviteId] = useState<string | null>(() => new URLSearchParams(window.location.search).get('invite'))
+  const clearInvite = useCallback(() => {
+    setInviteId(null)
+    const url = new URL(window.location.href)
+    url.searchParams.delete('invite')
+    window.history.replaceState({}, '', url.pathname + url.search + url.hash)
+  }, [])
+
   // ── Data (loaded from Supabase) ──
   const [loading, setLoading] = useState(true)
   const [rounds, setRoundsState] = useState<Round[]>([])
@@ -31,6 +41,7 @@ export default function App() {
   const [catalogs, setCatalogs] = useState<Record<string, Coffee[]>>({})
   const [ordersByRound, setOrdersByRound] = useState<Record<string, MemberOrder[]>>({})
   const [myPastOrders, setMyPastOrders] = useState<PastOrder[]>([])
+  const [campaigns, setCampaigns] = useState<InvitationCampaign[]>([])
 
   // ── Cart (current round) ──
   const [cart, setCart] = useState<Cart>({})
@@ -91,6 +102,10 @@ export default function App() {
         const ords = await db.fetchRoundOrders(active.id)
         setOrdersByRound((m) => ({ ...m, [active.id]: ords }))
       }
+      // If admin, load invitation campaigns
+      if (me?.is_admin) {
+        setCampaigns(await db.fetchCampaigns())
+      }
     } catch (e) {
       console.error('[reload]', e)
     } finally {
@@ -102,6 +117,8 @@ export default function App() {
 
   useEffect(() => save('view', view), [view])
   useEffect(() => save('dark', dark), [dark])
+  // An already-logged-in visitor who opens an invite link just sees the app.
+  useEffect(() => { if (authed && inviteId) clearInvite() }, [authed, inviteId, clearInvite])
 
   // Lazy-load orders for a round when admin switches to it
   const ensureOrdersLoaded = useCallback(async (roundId: string) => {
@@ -256,6 +273,16 @@ export default function App() {
     } catch (e) { console.error('[adminSetMembers]', e); alert('Kunne ikke lagre medlemmer.') }
   }
 
+  const adminCreateCampaign = useCallback(async (c: { name: string; password: string; expires_at: string }) => {
+    const created = await db.createCampaign(c)
+    setCampaigns((cs) => [created, ...cs])
+  }, [])
+
+  const adminDeleteCampaign = useCallback(async (id: string) => {
+    await db.deleteCampaign(id)
+    setCampaigns((cs) => cs.filter((c) => c.id !== id))
+  }, [])
+
   const adminSaveCatalog = async (roundId: string, list: Coffee[]) => {
     setCatalogs((c) => ({ ...c, [roundId]: list }))
     try {
@@ -272,7 +299,9 @@ export default function App() {
   if (!authed) {
     return (
       <div className={'k-app' + (dark ? ' dark' : '')}>
-        <LoginScreen onLogin={() => { setAuthed(true); goto('catalog') }} />
+        {inviteId
+          ? <InviteScreen campaignId={inviteId} onExit={clearInvite} />
+          : <LoginScreen onLogin={() => { setAuthed(true); goto('catalog') }} />}
       </div>
     )
   }
@@ -317,7 +346,11 @@ export default function App() {
           toggleOrderPaid={adminTogglePaid}
           catalogForRound={catalogForRound}
           saveCatalog={adminSaveCatalog}
+          campaigns={campaigns}
+          createCampaign={adminCreateCampaign}
+          deleteCampaign={adminDeleteCampaign}
           onBack={() => goto('catalog')}
+          dark={dark} onToggleDark={() => setDark((d) => !d)} onLogout={logout}
         />
       </div>
     )
@@ -325,24 +358,15 @@ export default function App() {
 
   return (
     <div className={'k-app' + (dark ? ' dark' : '')}>
-      <header className="k-header no-print">
-        <div className="k-header-inner">
-          <button className="k-logo" onClick={() => goto('catalog')} aria-label="CYBER Kaffi Lovers">
-            <LogoSmall height={30} />
-          </button>
-          <nav className="k-nav">
-            <button className={'k-nav-link' + (view === 'catalog' ? ' active' : '')} onClick={() => goto('catalog')}>Bestilling</button>
-            <button className={'k-nav-link' + (view === 'history' ? ' active' : '')} onClick={() => goto('history')}>Mine bestillinger</button>
-            {isAdmin && <button className={'k-nav-link' + (view === 'admin' ? ' active' : '')} onClick={() => goto('admin')}>Admin</button>}
-          </nav>
-          <div className="k-header-actions">
-            <button className="k-btn k-btn-ghost k-btn-icon" onClick={() => setDark((d) => !d)} aria-label="Bytt tema">
-              {dark ? <IconSun size={18} /> : <IconMoon size={18} />}
-            </button>
-            <button className="k-btn k-btn-ghost k-btn-sm" onClick={logout}>Logg ut</button>
-          </div>
-        </div>
-      </header>
+      <AppHeader
+        onLogoClick={() => goto('catalog')}
+        nav={<>
+          <button className={'k-nav-link' + (view === 'catalog' ? ' active' : '')} onClick={() => goto('catalog')}>Bestilling</button>
+          <button className={'k-nav-link' + (view === 'history' ? ' active' : '')} onClick={() => goto('history')}>Mine bestillinger</button>
+          {isAdmin && <button className={'k-nav-link' + (view === 'admin' ? ' active' : '')} onClick={() => goto('admin')}>Admin</button>}
+        </>}
+        dark={dark} onToggleDark={() => setDark((d) => !d)} onLogout={logout}
+      />
 
       <main className="k-main">
         {view === 'history' ? (

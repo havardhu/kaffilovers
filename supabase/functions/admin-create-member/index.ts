@@ -18,7 +18,7 @@ const cors = {
 
 interface Body {
   name: string
-  email: string
+  email?: string | null
   phone: string
   is_admin?: boolean
 }
@@ -78,27 +78,31 @@ Deno.serve(async (req) => {
     // ── Validate body ────────────────────────────────────────────
     const body = await req.json() as Body
     const name = String(body.name ?? "").trim()
-    const email = String(body.email ?? "").trim().toLowerCase()
+    const email = body.email ? String(body.email).trim().toLowerCase() : null
     const phone = String(body.phone ?? "").replace(/\D/g, "")
-    if (!name || !email || !phone) return json({ error: "missing_fields" }, 400)
+    if (!name || !phone) return json({ error: "missing_fields" }, 400)
     if (phone.length < 10 || phone.length > 15) return json({ error: "bad_phone" }, 400)
 
-    // ── Create auth.users (idempotent) ───────────────────────────
+    // ── Create auth.users (best-effort) ─────────────────────────
+    // Auth requires E.164 with leading +; members table stores digits-only.
+    // Failure here is non-fatal: the member can still sign in via phone OTP,
+    // which creates their auth.users row automatically on first login.
     const createRes = await admin.auth.admin.createUser({
-      email, phone, email_confirm: true, phone_confirm: true,
+      ...(email ? { email, email_confirm: true } : {}),
+      phone, phone_confirm: true,
       user_metadata: { name },
     })
     if (createRes.error && !/already|registered|exist/i.test(createRes.error.message)) {
-      console.error("[createUser]", createRes.error)
-      return json({ error: "create_user_failed", detail: createRes.error.message }, 500)
+      console.warn("[createUser] non-fatal:", createRes.error.message)
     }
 
     // ── Insert into public.members ───────────────────────────────
     const { data: member, error: memErr } = await admin
       .from("members")
       .upsert(
-        { name, email, phone, is_admin: !!body.is_admin },
-        { onConflict: "email" }
+        // Admin-added members are trusted, so they are verified immediately.
+        { name, email, phone, is_admin: !!body.is_admin, verified: true },
+        { onConflict: "phone" }
       )
       .select()
       .single()
