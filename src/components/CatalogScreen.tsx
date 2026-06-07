@@ -119,6 +119,7 @@ export default function CatalogScreen({
 }: Props) {
   const lines = useMemo(() => Object.values(cart).reduce((a, b) => a + b, 0), [cart])
   const [printing, setPrinting] = useState(false)
+  const [detailsOpen, setDetailsOpen] = useState(false)
   const printCatalog = () => {
     setPrinting(true)
     setTimeout(() => { window.print(); setTimeout(() => setPrinting(false), 500) }, 100)
@@ -264,10 +265,37 @@ export default function CatalogScreen({
           {bd && (
             <>
               <div className="k-order-rows">
-                <div className="k-order-row">
-                  <span>Kaffe · {bd.bags} {bd.bags === 1 ? 'pose' : 'poser'}</span>
+                <button
+                  type="button"
+                  className="k-order-row k-order-row-toggle"
+                  onClick={() => setDetailsOpen((o) => !o)}
+                  aria-expanded={detailsOpen}
+                >
+                  <span className="k-order-row-label">
+                    Kaffe · {bd.bags} {bd.bags === 1 ? 'pose' : 'poser'}
+                    <span className={'k-chev' + (detailsOpen ? ' open' : '')}>
+                      <IconChevronDown size={14} />
+                    </span>
+                  </span>
                   <span>{fmtPrice(bd.varesum)}</span>
-                </div>
+                </button>
+                {detailsOpen && (
+                  <div className="k-order-details">
+                    {items
+                      .filter((it) => (cart[it.id] ?? 0) > 0)
+                      .map((it) => {
+                        const qty = cart[it.id] ?? 0
+                        const lineSum = priceIncVat(it.price, round.vat_rate) * qty
+                        return (
+                          <div key={it.id} className="k-order-detail-line">
+                            <span className="k-receipt-qty">{qty}×</span>
+                            <span className="k-receipt-name">{it.name}</span>
+                            <span className="k-receipt-sum">{fmtPrice(lineSum)}</span>
+                          </div>
+                        )
+                      })}
+                  </div>
+                )}
                 {bd.gebyr > 0 && (
                   <div className="k-order-row k-order-row-muted">
                     <span>Administrasjonsgebyr ({fmtPrice(bd.adminFee)} × {bd.bags})</span>
