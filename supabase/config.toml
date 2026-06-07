@@ -1,0 +1,20 @@
+# Supabase local/deploy config.
+#
+# Only the bits we need are declared here. Most settings are managed in the
+# hosted dashboard; this file mainly pins per-function JWT behaviour so it
+# survives `supabase functions deploy`.
+
+[functions.redeem-invitation]
+# Invitees are not logged in yet, so the gateway must NOT require a JWT.
+# The function authenticates the caller via the campaign password instead.
+verify_jwt = false
+
+[functions.send-sms]
+# Supabase Auth "Send SMS" hook — called by Auth, not a logged-in user.
+# It verifies its own webhook signature, so the gateway must not require a JWT.
+verify_jwt = false
+
+[functions.admin-create-member]
+# Called by a logged-in admin; relies on the gateway verifying the JWT, whose
+# claims the function trusts to identify the caller.
+verify_jwt = true

@@ -19,9 +19,18 @@ export interface Round {
 export interface Member {
   id: string
   name: string
-  email: string
+  email?: string
   phone: string
   is_admin: boolean
+  verified?: boolean
+}
+
+export interface InvitationCampaign {
+  id: string
+  name: string
+  password: string
+  expires_at: string // 'YYYY-MM-DD'
+  created_at: string
 }
 
 export interface OrderItem {
@@ -32,7 +41,7 @@ export interface OrderItem {
 export interface MemberOrder {
   id: string
   member: string
-  email: string
+  email?: string
   placed_at: string
   paid: boolean
   items: Record<string, number>

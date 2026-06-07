@@ -1,14 +1,15 @@
 import { useState, useMemo, useEffect } from 'react'
-import type { Coffee, Round, Member, MemberOrder } from '../lib/types'
+import type { Coffee, Round, Member, MemberOrder, InvitationCampaign } from '../lib/types'
 import { ROUND_BADGE } from '../lib/types'
 import { fmtPrice, fmtDeadline, priceBreakdown, initials } from '../lib/utils'
 import { formatPhone, normalizePhone, isValidPhone } from '../lib/phone'
 import { parseImport, slugify } from '../lib/import'
 import { Card, CardContent, Badge, Button, Input, Label, Stepper } from './ui'
+import AppHeader from './AppHeader'
 import {
   IconPlus, IconEdit, IconTrash, IconPrinter, IconCheck, IconClock,
-  IconCalendar, IconChevronDown, IconPhone, IconMail, IconBack,
-  IconLock, IconRepeat, IconUsers, IconReceipt, IconCopy, LogoSmall,
+  IconCalendar, IconChevronDown, IconPhone, IconBack,
+  IconLock, IconRepeat, IconUsers, IconReceipt, IconCopy,
 } from './icons'
 
 // ── helpers ──────────────────────────────────────────────────────
@@ -131,17 +132,19 @@ function MemberCard({ order, catalog, round, paid, phone, onTogglePaid, onSaveIt
           </div>
           <span className="k-member-sub">{bags} {bags === 1 ? 'pose' : 'poser'} · bestilte {order.placed_at}</span>
         </div>
-        <span
-          className={'k-pay-toggle' + (paid ? ' paid' : '')}
-          role="button" tabIndex={0}
-          title={paid ? 'Merk som ikke betalt' : 'Merk som betalt'}
-          onClick={(e) => { e.stopPropagation(); onTogglePaid() }}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onTogglePaid() } }}
-        >
-          {paid ? <><IconCheck size={13} /> Betalt</> : <><IconClock size={13} /> Ikke betalt</>}
-        </span>
-        <span className="k-member-tot">{fmtPrice(bd.total)}</span>
-        <span className={'k-chev' + (open ? ' open' : '')}><IconBack size={16} style={{ transform: 'rotate(-90deg)' }} /></span>
+        <div className="k-member-right">
+          <span
+            className={'k-pay-toggle' + (paid ? ' paid' : '')}
+            role="button" tabIndex={0}
+            title={paid ? 'Merk som ikke betalt' : 'Merk som betalt'}
+            onClick={(e) => { e.stopPropagation(); onTogglePaid() }}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onTogglePaid() } }}
+          >
+            {paid ? <><IconCheck size={13} /> Betalt</> : <><IconClock size={13} /> Ikke betalt</>}
+          </span>
+          <span className="k-member-tot">{fmtPrice(bd.total)}</span>
+          <span className={'k-chev' + (open ? ' open' : '')}><IconBack size={16} style={{ transform: 'rotate(-90deg)' }} /></span>
+        </div>
       </button>
 
       {open && !editing && (
@@ -316,7 +319,7 @@ function OrdersView({ rounds, roundId, setRoundId, members, ordersForRound, cata
           <p className="k-section-label" style={{ marginTop: 4 }}>Per medlem</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {orders.map((o) => {
-              const m = members.find((x) => x.email === o.email) ?? members.find((x) => x.name === o.member)
+              const m = members.find((x) => x.name === o.member)
               return (
               <MemberCard key={o.id} order={o} catalog={catalog} round={round ?? null}
                 paid={o.paid} phone={m?.phone}
@@ -801,18 +804,169 @@ function RoundsManager({ rounds, setRounds, ordersForRound, catalogForRound, sav
   )
 }
 
+// ── CampaignManager (invite links) ────────────────────────────────
+
+function inviteUrl(id: string) {
+  return `${window.location.origin}/?invite=${id}`
+}
+function campaignExpired(c: InvitationCampaign) {
+  return new Date().toISOString().slice(0, 10) > c.expires_at
+}
+// A short, readable password that's easy to paste into Slack.
+function suggestPassword() {
+  return 'kaffi-' + Math.floor(1000 + Math.random() * 9000)
+}
+
+function CopyButton({ text, label, copiedLabel, variant = 'outline' }: {
+  text: string; label: string; copiedLabel?: string; variant?: 'outline' | 'ghost' | 'default'
+}) {
+  const [copied, setCopied] = useState(false)
+  const copy = () => {
+    void navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1400)
+  }
+  return (
+    <Button variant={variant} size="sm" onClick={copy}>
+      {copied ? <IconCheck size={14} /> : <IconCopy size={14} />} {copied ? (copiedLabel ?? 'Kopiert!') : label}
+    </Button>
+  )
+}
+
+function CampaignManager({ campaigns, createCampaign, deleteCampaign }: {
+  campaigns: InvitationCampaign[]
+  createCampaign: (c: { name: string; password: string; expires_at: string }) => Promise<void>
+  deleteCampaign: (id: string) => Promise<void>
+}) {
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState('')
+  const [password, setPassword] = useState(suggestPassword())
+  const [expires, setExpires] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const valid = password.trim().length >= 3 && !!expires
+  const startCreate = () => {
+    setName(''); setPassword(suggestPassword()); setExpires(''); setError(''); setOpen(true)
+  }
+  const save = async () => {
+    if (!valid) return
+    setSaving(true); setError('')
+    try {
+      await createCampaign({ name: name.trim(), password: password.trim(), expires_at: expires })
+      setOpen(false)
+    } catch (e) {
+      console.error('[createCampaign]', e)
+      setError('Kunne ikke opprette kampanjen.')
+    } finally {
+      setSaving(false)
+    }
+  }
+  const remove = async (c: InvitationCampaign) => {
+    if (!window.confirm(`Slette invitasjonen «${c.name || 'uten navn'}»? Lenken slutter å virke.`)) return
+    try { await deleteCampaign(c.id) }
+    catch (e) { console.error('[deleteCampaign]', e); alert('Kunne ikke slette invitasjonen.') }
+  }
+
+  const slackMessage = (c: InvitationCampaign) =>
+    `Registrer deg her for å bestille:\n${inviteUrl(c.id)}\nPassord: ${c.password}`
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 4 }}>
+      <div className="k-round-switch">
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p className="k-section-label" style={{ margin: 0 }}>Inviter via lenke</p>
+          <p className="k-page-sub" style={{ marginTop: 2 }}>
+            Lag en delbar lenke med passord du kan poste på Slack. Nye medlemmer registrerer seg selv.
+          </p>
+        </div>
+        {!open && (
+          <div className="k-round-switch-actions">
+            <Button size="sm" onClick={startCreate}><IconPlus size={14} /> Ny invitasjon</Button>
+          </div>
+        )}
+      </div>
+
+      {open && (
+        <Card>
+          <div className="k-edit-form">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <Label>Navn på kampanjen (valgfritt)</Label>
+              <Input value={name} placeholder="f.eks. Slack-invitasjon juli" onChange={(e) => setName(e.target.value)} />
+            </div>
+            <div className="k-campaign-grid">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <Label>Utløper</Label>
+                <Input type="date" value={expires} onChange={(e) => setExpires(e.target.value)} />
+                {expires && <span className="k-field-hint">Virker til og med {fmtDeadline(expires)}.</span>}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <Label>Passord</Label>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <Input value={password} onChange={(e) => setPassword(e.target.value)} style={{ flex: 1 }} />
+                  <Button variant="outline" size="sm" type="button" onClick={() => setPassword(suggestPassword())}>
+                    <IconRepeat size={14} />
+                  </Button>
+                </div>
+                <span className="k-field-hint">Deles på Slack sammen med lenken.</span>
+              </div>
+            </div>
+            {error && <p className="k-err">{error}</p>}
+            <div className="k-edit-actions">
+              <Button variant="ghost" size="sm" onClick={() => setOpen(false)} disabled={saving}>Avbryt</Button>
+              <Button size="sm" disabled={!valid || saving} onClick={save}>{saving ? 'Oppretter…' : 'Opprett invitasjon'}</Button>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {campaigns.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {campaigns.map((c) => {
+            const expired = campaignExpired(c)
+            return (
+              <Card key={c.id} className="k-round-card">
+                <div className="k-round-mark"><IconLock size={18} color="var(--primary)" /></div>
+                <div className="k-round-main">
+                  <div className="k-round-title-row">
+                    <span className="k-round-name">{c.name || 'Invitasjon'}</span>
+                    <Badge variant={expired ? 'closed' : 'safe'}>{expired ? 'Utløpt' : 'Aktiv'}</Badge>
+                  </div>
+                  <div className="k-round-facts">
+                    <span className="k-round-fact"><IconClock size={14} /> {expired ? 'Utløp' : 'Utløper'} <strong>{fmtDeadline(c.expires_at)}</strong></span>
+                    <span className="k-round-fact"><IconLock size={13} /> Passord: <strong>{c.password}</strong></span>
+                  </div>
+                  <div style={{
+                    fontSize: 12.5, fontFamily: 'ui-monospace, monospace', wordBreak: 'break-all',
+                    color: 'var(--muted-foreground)', background: 'var(--muted)', padding: '6px 9px', borderRadius: 6,
+                  }}>
+                    {inviteUrl(c.id)}
+                  </div>
+                  <div className="k-round-actions">
+                    <CopyButton text={inviteUrl(c.id)} label="Kopier lenke" />
+                    <CopyButton text={slackMessage(c)} label="Kopier lenke + passord" copiedLabel="Klar til Slack!" />
+                    <Button size="sm" variant="ghost" onClick={() => remove(c)}><IconTrash size={14} /> Slett</Button>
+                  </div>
+                </div>
+              </Card>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── MembersManager ────────────────────────────────────────────────
 
-const blankMember = (): Member => ({ id: crypto.randomUUID(), name: '', email: '', phone: '', is_admin: false })
-function isEmail(s: string) { return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s.trim()) }
+const blankMember = (): Member => ({ id: crypto.randomUUID(), name: '', phone: '', is_admin: false })
 
 function MemberForm({ draft, onChange, onSave, onCancel, isNew }: {
   draft: Member; onChange: (m: Member) => void; onSave: () => void; onCancel: () => void; isNew: boolean
 }) {
   const nameOk = draft.name.trim().length > 1
-  const emailOk = isEmail(draft.email)
   const phoneOk = isValidPhone(draft.phone)
-  const valid = nameOk && emailOk && phoneOk
+  const valid = nameOk && phoneOk
   // Show the display-formatted phone, but normalize on commit (blur or save)
   const phoneShown = formatPhone(draft.phone) === draft.phone || /\s/.test(draft.phone)
     ? draft.phone : formatPhone(draft.phone)
@@ -821,11 +975,6 @@ function MemberForm({ draft, onChange, onSave, onCancel, isNew }: {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <Label>Navn</Label>
         <Input value={draft.name} placeholder="f.eks. Kari Solbakken" onChange={(e) => onChange({ ...draft, name: e.target.value })} />
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <Label>E-post</Label>
-        <Input type="email" value={draft.email} placeholder="kari@example.no" onChange={(e) => onChange({ ...draft, email: e.target.value })} />
-        {draft.email && !emailOk && <span className="k-field-hint danger">Ugyldig e-postadresse</span>}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <Label>Telefon</Label>
@@ -843,7 +992,12 @@ function MemberForm({ draft, onChange, onSave, onCancel, isNew }: {
   )
 }
 
-function MembersManager({ members, setMembers }: { members: Member[]; setMembers: (m: Member[]) => void }) {
+function MembersManager({ members, setMembers, campaigns, createCampaign, deleteCampaign }: {
+  members: Member[]; setMembers: (m: Member[]) => void
+  campaigns: InvitationCampaign[]
+  createCampaign: (c: { name: string; password: string; expires_at: string }) => Promise<void>
+  deleteCampaign: (id: string) => Promise<void>
+}) {
   const [editId, setEditId] = useState<string | null>(null)
   const [draft, setDraft] = useState<Member | null>(null)
 
@@ -853,7 +1007,7 @@ function MembersManager({ members, setMembers }: { members: Member[]; setMembers
 
   const saveDraft = () => {
     if (!draft) return
-    const clean = { ...draft, name: draft.name.trim(), email: draft.email.trim(), phone: draft.phone.trim() }
+    const clean = { ...draft, name: draft.name.trim(), phone: draft.phone.trim() }
     const exists = members.some((m) => m.id === clean.id)
     setMembers(exists ? members.map((m) => (m.id === clean.id ? clean : m)) : [...members, clean])
     cancel()
@@ -868,6 +1022,9 @@ function MembersManager({ members, setMembers }: { members: Member[]; setMembers
   return (
     <div className="k-page">
       <div className="k-page-head"><h1 className="k-page-title">Medlemmer</h1></div>
+
+      <CampaignManager campaigns={campaigns} createCampaign={createCampaign} deleteCampaign={deleteCampaign} />
+
       <div className="k-round-switch">
         <p className="k-page-sub" style={{ margin: 0 }}>{members.length} {members.length === 1 ? 'registrert medlem' : 'registrerte medlemmer'}</p>
         {editId === null && (
@@ -891,9 +1048,11 @@ function MembersManager({ members, setMembers }: { members: Member[]; setMembers
               <div className="k-reg-row">
                 <div className="k-avatar">{initials(m.name)}</div>
                 <div className="k-reg-main">
-                  <span className="k-member-name">{m.name}</span>
+                  <span className="k-member-name" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    {m.name}
+                    {m.verified === false && <Badge variant="warn">Ikke logget inn ennå</Badge>}
+                  </span>
                   <div className="k-reg-contact">
-                    <span className="k-reg-item"><IconMail size={13} /> {m.email}</span>
                     <span className="k-reg-item k-reg-phone"><IconPhone size={13} /> {formatPhone(m.phone)}</span>
                   </div>
                 </div>
@@ -945,7 +1104,7 @@ function PrintDocs({ mode, round, orders, catalog }: {
         {orders.map((o) => {
           const bd = priceBreakdown(o.items, catalog, round ?? null)
           return (
-            <div key={o.email} className="print-member">
+            <div key={o.id} className="print-member">
               <div className="print-member-head">
                 <span className="print-member-name">{o.member}</span>
                 <span>{memberBags(o)} poser · <strong>{fmtPrice(bd.total)}</strong></span>
@@ -982,10 +1141,16 @@ interface AdminProps {
   toggleOrderPaid: (orderId: string, paid: boolean, roundId: string) => Promise<void>
   catalogForRound: (id: string) => Coffee[]
   saveCatalog: (id: string, list: Coffee[]) => void
+  campaigns: InvitationCampaign[]
+  createCampaign: (c: { name: string; password: string; expires_at: string }) => Promise<void>
+  deleteCampaign: (id: string) => Promise<void>
   onBack: () => void
+  dark: boolean
+  onToggleDark: () => void
+  onLogout: () => void
 }
 
-export default function AdminScreen({ rounds, setRounds, members, setMembers, ordersForRound, ensureOrdersLoaded, saveOrderItems, deleteOrder, toggleOrderPaid, catalogForRound, saveCatalog, onBack }: AdminProps) {
+export default function AdminScreen({ rounds, setRounds, members, setMembers, ordersForRound, ensureOrdersLoaded, saveOrderItems, deleteOrder, toggleOrderPaid, catalogForRound, saveCatalog, campaigns, createCampaign, deleteCampaign, onBack, dark, onToggleDark, onLogout }: AdminProps) {
   const [tab, setTab] = useState<AdminTab>('orders')
   const [ordersRoundId, setOrdersRoundIdRaw] = useState(() => (rounds.find((r) => r.status === 'åpen') ?? rounds[0])?.id ?? '')
   const setOrdersRoundId = (id: string) => { setOrdersRoundIdRaw(id); void ensureOrdersLoaded(id) }
@@ -1014,26 +1179,16 @@ export default function AdminScreen({ rounds, setRounds, members, setMembers, or
       <PrintDocs mode={printMode} round={activeRound} orders={activeOrders} catalog={activeCatalog} />
 
       <div className="k-app no-print">
-        <header className="k-header no-print">
-          <div className="k-header-inner">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <button className="k-logo" onClick={onBack} aria-label="CYBER Kaffi Lovers">
-                <LogoSmall height={30} />
-              </button>
-              <span className="k-admin-tag">Admin</span>
-            </div>
-            <nav className="k-nav">
-              {tabs.map((t) => (
-                <button key={t.id} className={'k-nav-link' + (tab === t.id ? ' active' : '')} onClick={() => setTab(t.id)}>
-                  {t.label}
-                </button>
-              ))}
-            </nav>
-            <div className="k-header-actions">
-              <button className="k-headerlink" onClick={onBack}>← Til bestilling</button>
-            </div>
-          </div>
-        </header>
+        <AppHeader
+          onLogoClick={onBack}
+          badge={<span className="k-admin-tag">Admin</span>}
+          nav={tabs.map((t) => (
+            <button key={t.id} className={'k-nav-link' + (tab === t.id ? ' active' : '')} onClick={() => setTab(t.id)}>
+              {t.label}
+            </button>
+          ))}
+          dark={dark} onToggleDark={onToggleDark} onLogout={onLogout}
+        />
 
         <main className="k-main">
           {tab === 'orders' && (
@@ -1053,7 +1208,8 @@ export default function AdminScreen({ rounds, setRounds, members, setMembers, or
               ordersForRound={ordersForRound} catalogForRound={catalogForRound} saveCatalog={saveCatalog} />
           )}
           {tab === 'members' && (
-            <MembersManager members={members} setMembers={setMembers} />
+            <MembersManager members={members} setMembers={setMembers}
+              campaigns={campaigns} createCampaign={createCampaign} deleteCampaign={deleteCampaign} />
           )}
         </main>
 
