@@ -56,12 +56,13 @@ export function LogoSmall({ height = 30 }: { height?: number }) {
         <circle cx="3" cy="10" r="1.5"/><circle cx="3" cy="30" r="1.5"/>
         <circle cx="37" cy="10" r="1.5"/><circle cx="37" cy="30" r="1.5"/>
       </g>
+      
       <path d="M20,4 L34,10 L34,24 Q34,33 20,37 Q6,33 6,24 L6,10 Z" fill="#ede3d4" stroke="#a8502e" strokeWidth="1.2"/>
       <path d="M20,7 L31,12 L31,23 Q31,30 20,34 Q9,30 9,23 L9,12 Z" fill="#e4d5be"/>
       <rect x="12" y="14" width="16" height="16" rx="2" fill="#fefefb" stroke="#a8502e" strokeWidth="0.9"/>
       <rect x="13.5" y="15.5" width="13" height="5" rx="1.5" fill="#6b3a1f"/>
       <path d="M28.5,18 Q32,18 32,22 Q32,26 28.5,26" stroke="#a8502e" fill="none" strokeWidth="1.2" strokeLinecap="round"/>
-      <ellipse cx="20" cy="30.5" rx="10" ry="1.8" fill="#ede3d4" stroke="#a8502e" strokeWidth="0.9"/>
+     
       <g stroke="#a8502e" fill="none" strokeWidth="0.9" strokeLinecap="round" opacity="0.6">
         <path d="M16,13.5 L16,10.5 L17.2,9 L16,7.5"/>
         <path d="M20,13.5 L20,10 L21.2,8.5 L20,7"/>
@@ -105,12 +106,13 @@ export function LogoLarge({ style, className }: { style?: React.CSSProperties; c
       </g>
       <path d="M240,96 L322,132 L322,238 Q322,296 240,324 Q158,296 158,238 L158,132 Z" fill="#ede3d4" stroke="#a8502e" strokeWidth="2"/>
       <path d="M240,112 L308,144 L308,236 Q308,286 240,310 Q172,286 172,236 L172,144 Z" fill="#e4d5be"/>
+      <ellipse cx="240" cy="264" rx="48" ry="7" fill="#ede3d4" stroke="#a8502e" strokeWidth="1.5"/>
       <rect x="203" y="188" width="74" height="74" rx="6" fill="#fefefb" stroke="#a8502e" strokeWidth="1.5"/>
       <rect x="208" y="193" width="64" height="24" rx="3" fill="#6b3a1f"/>
       <line x1="208" y1="228" x2="272" y2="228" stroke="#c8835a" strokeWidth="0.8" opacity="0.5"/>
       <line x1="208" y1="240" x2="272" y2="240" stroke="#c8835a" strokeWidth="0.8" opacity="0.5"/>
       <path d="M277,207 Q298,207 298,229 Q298,251 277,251" stroke="#a8502e" fill="none" strokeWidth="2.5" strokeLinecap="round"/>
-      <ellipse cx="240" cy="264" rx="48" ry="7" fill="#ede3d4" stroke="#a8502e" strokeWidth="1.5"/>
+     
       <g stroke="#a8502e" fill="none" strokeWidth="1.5" strokeLinecap="round" opacity="0.7">
         <path d="M223,185 L223,172 L228,165 L223,158"/>
         <path d="M240,185 L240,170 L245,163 L240,156"/>
