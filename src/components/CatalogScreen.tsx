@@ -161,6 +161,38 @@ export default function CatalogScreen({
 
   const today = new Date().toLocaleDateString('nb-NO', { day: 'numeric', month: 'long', year: 'numeric' })
 
+  // Short deadline ("6. juli") for the status badge — drops the weekday.
+  const deadlineShort = (() => {
+    const parts = (round.deadline_iso || '').slice(0, 10).split('-')
+    if (parts.length === 3) {
+      const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))
+      if (!isNaN(d.getTime())) return d.getDate() + '. ' + d.toLocaleDateString('nb-NO', { month: 'long' })
+    }
+    return round.deadline.replace(/^\S+\s/, '') // fallback: strip leading weekday
+  })()
+
+  // The order actions, shown inside the summary box. Delete is always available
+  // when an order exists; the primary button locks or unlocks it.
+  const orderAction = (
+    <>
+      {hasExistingOrder && (
+        <Button variant="ghost" size="sm" className="k-lock-btn" onClick={onDeleteOrder}
+          style={{ color: 'var(--destructive)' }}>
+          <IconTrash size={14} /> Slett bestilling
+        </Button>
+      )}
+      {locked ? (
+        <Button variant="outline" size="sm" className="k-lock-btn" onClick={onToggleLock}>
+          <IconEdit size={14} /> Endre bestilling
+        </Button>
+      ) : (
+        <Button size="sm" className="k-lock-btn" onClick={onToggleLock} disabled={lines === 0}>
+          <IconCheck size={14} /> Lagre bestilling
+        </Button>
+      )}
+    </>
+  )
+
   return (
     <>
     <div className={'print-doc' + (printing ? ' active' : '')}>
@@ -204,45 +236,17 @@ export default function CatalogScreen({
           </select>
           <IconChevronDown size={16} />
         </div>
-        <Badge variant={badge.variant}>{badge.label}</Badge>
+        <Badge variant={badge.variant}>{isOpen ? `${badge.label} t.o.m. ${deadlineShort}` : badge.label}</Badge>
         {isOpen && isActive && (
           <div className="k-round-switch-actions">
             <Button variant="outline" size="sm" onClick={printCatalog}>
               <IconPrinter size={14} /> Skriv ut katalog
             </Button>
-            {locked ? (
-              <Button variant="outline" size="sm" className="k-lock-btn" onClick={onToggleLock}>
-                <IconEdit size={14} /> Lås opp bestilling
-              </Button>
-            ) : lines === 0 && hasExistingOrder ? (
-              <Button variant="outline" size="sm" className="k-lock-btn" onClick={onDeleteOrder}
-                style={{ color: 'var(--destructive)' }}>
-                <IconTrash size={14} /> Slett bestilling
-              </Button>
-            ) : (
-              <Button size="sm" className="k-lock-btn" onClick={onToggleLock} disabled={lines === 0}>
-                <IconLock size={14} /> Lås bestilling
-              </Button>
-            )}
           </div>
         )}
       </div>
 
-      {locked && isOpen && isActive ? (
-        <div className="k-window-bar k-window-locked">
-          <div className="k-window-item">
-            <IconLock size={15} color="var(--primary)" />
-            <span>Bestillingen er <strong>låst</strong> — {lines} {lines === 1 ? 'pose' : 'poser'} sendt inn. Lås opp for å endre frem til fristen <strong>{round.deadline}</strong>.</span>
-          </div>
-        </div>
-      ) : isOpen ? (
-        <div className="k-window-bar">
-          <div className="k-window-item">
-            <IconClock size={15} color="var(--primary)" />
-            <span>Frist <strong>{round.deadline}</strong></span>
-          </div>
-        </div>
-      ) : (
+      {!isOpen ? (
         <div className={'k-window-bar ' + (round.status === 'lukket' ? 'k-window-closed' : 'k-window-soon')}>
           <div className="k-window-item">
             {round.status === 'lukket' ? <IconLock size={15} /> : <IconClock size={15} />}
@@ -253,46 +257,55 @@ export default function CatalogScreen({
             </span>
           </div>
         </div>
+      ) : null}
+
+      {isOpen && isActive && (bd || hasExistingOrder) && (
+        <div className="k-order-total">
+          {bd && (
+            <>
+              <div className="k-order-rows">
+                <div className="k-order-row">
+                  <span>Kaffe · {bd.bags} {bd.bags === 1 ? 'pose' : 'poser'}</span>
+                  <span>{fmtPrice(bd.varesum)}</span>
+                </div>
+                {bd.gebyr > 0 && (
+                  <div className="k-order-row k-order-row-muted">
+                    <span>Administrasjonsgebyr ({fmtPrice(bd.adminFee)} × {bd.bags})</span>
+                    <span>{fmtPrice(bd.gebyr)}</span>
+                  </div>
+                )}
+              </div>
+              <div className="k-order-row k-order-grand">
+                <span className="k-order-total-label">Å betale</span>
+                <span className="k-order-total-sum">{fmtPrice(bd.total)}</span>
+              </div>
+              {bd.mva > 0 && (
+                <div className="k-order-row k-order-row-muted">
+                  <span>Herav mva ({bd.vatRate} %)</span>
+                  <span>{fmtPrice(bd.mva)}</span>
+                </div>
+              )}
+            </>
+          )}
+          {!bd && <p className="k-order-empty">Bestillingen er tom.</p>}
+          <div className="k-order-actions">
+            <span className="k-order-deadline">Kan endres frem til fristen {round.deadline}.</span>
+            <div className="k-order-buttons">{orderAction}</div>
+          </div>
+        </div>
       )}
 
       {layout === 'list' && <div className="k-list">{items.map(renderItem)}</div>}
       {layout === 'card' && <div className="k-cards">{items.map(renderItem)}</div>}
       {layout === 'grid' && <div className="k-grid">{items.map(renderItem)}</div>}
 
-      {bd && (
-        <div className="k-order-total">
-          <div className="k-order-rows">
-            <div className="k-order-row">
-              <span>Kaffe · {bd.bags} {bd.bags === 1 ? 'pose' : 'poser'}</span>
-              <span>{fmtPrice(bd.varesum)}</span>
-            </div>
-            {bd.gebyr > 0 && (
-              <div className="k-order-row k-order-row-muted">
-                <span>Administrasjonsgebyr ({fmtPrice(bd.adminFee)} × {bd.bags})</span>
-                <span>{fmtPrice(bd.gebyr)}</span>
-              </div>
-            )}
-          </div>
-          <div className="k-order-row k-order-grand">
-            <span className="k-order-total-label">Å betale</span>
-            <span className="k-order-total-sum">{fmtPrice(bd.total)}</span>
-          </div>
-          {bd.mva > 0 && (
-            <div className="k-order-row k-order-row-muted">
-              <span>Herav mva ({bd.vatRate} %)</span>
-              <span>{fmtPrice(bd.mva)}</span>
-            </div>
-          )}
-        </div>
-      )}
-
       <p className="k-catalog-foot">
         {!isOpen
           ? (round.status === 'lukket' ? 'Denne runden er avsluttet.' : 'Du kan legge inn bestilling når runden åpner.')
           : locked
-            ? 'Bestillingen er låst. Lås opp øverst for å gjøre endringer.'
+            ? 'Bestillingen er lagret.'
             : (lines > 0
-                ? `${lines} ${lines === 1 ? 'pose' : 'poser'} valgt — trykk «Lås bestilling» øverst når du er ferdig.`
+                ? `${lines} ${lines === 1 ? 'pose' : 'poser'} valgt.`
                 : 'Trykk «Legg til» for å begynne bestillingen.')}
       </p>
     </div>
