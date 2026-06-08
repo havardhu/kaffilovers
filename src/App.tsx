@@ -8,10 +8,11 @@ import InviteScreen from './components/InviteScreen'
 import CatalogScreen from './components/CatalogScreen'
 import HistoryScreen from './components/HistoryScreen'
 import AdminScreen from './components/AdminScreen'
+import InfoScreen from './components/InfoScreen'
 import AppHeader from './components/AppHeader'
 import './styles.css'
 
-type View = 'catalog' | 'history' | 'admin'
+type View = 'catalog' | 'history' | 'admin' | 'info'
 
 export default function App() {
   // ── Auth ──
@@ -363,13 +364,16 @@ export default function App() {
         nav={<>
           <button className={'k-nav-link' + (view === 'catalog' ? ' active' : '')} onClick={() => goto('catalog')}>Bestilling</button>
           <button className={'k-nav-link' + (view === 'history' ? ' active' : '')} onClick={() => goto('history')}>Mine bestillinger</button>
+          <button className={'k-nav-link' + (view === 'info' ? ' active' : '')} onClick={() => goto('info')}>Info for geeks</button>
           {isAdmin && <button className={'k-nav-link' + (view === 'admin' ? ' active' : '')} onClick={() => goto('admin')}>Admin</button>}
         </>}
         dark={dark} onToggleDark={() => setDark((d) => !d)} onLogout={logout}
       />
 
       <main className="k-main">
-        {view === 'history' ? (
+        {view === 'info' ? (
+          <InfoScreen />
+        ) : view === 'history' ? (
           <HistoryScreen
             currentOrder={currentOrder}
             pastOrders={currentOrder ? myPastOrders.filter((o) => o.round_id !== activeRound?.id) : myPastOrders}

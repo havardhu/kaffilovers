@@ -1,6 +1,6 @@
 ---
 name: supabase
-description: Manage the Supabase project for Kaffilauget — log in to the CLI, link the local repo to the cloud project, and push SQL migrations from `supabase/migrations/`. Use when the user says things like "push migrations", "deploy schema", "run the supabase migration", "link supabase", or asks to apply changes in `supabase/migrations/`.
+description: Manage the Supabase project for Kaffilauget — log in to the CLI, link the local repo to the cloud project, push SQL migrations from `supabase/migrations/`, and deploy edge functions from `supabase/functions/`. Use when the user says things like "push migrations", "deploy schema", "run the supabase migration", "link supabase", "deploy edge function", or asks to apply changes in `supabase/migrations/` or `supabase/functions/`.
 ---
 
 # Supabase CLI — Kaffilauget
@@ -30,6 +30,30 @@ This project uses the Supabase CLI via `npx` (no global install required). The c
    - If push reports a mismatch ("remote database is not in sync"), do **not** auto-resolve. Show the diff to the user and ask whether to `db pull` (accept remote) or `db push --include-all` (force-apply local).
    - If a migration fails partway through, the transaction rolls back. Show the user the error verbatim — never edit a migration file that has already been (partially) applied.
 
+## Deploying edge functions
+
+Edge functions live in `supabase/functions/<name>/index.ts`. Per-function settings (e.g. `verify_jwt`) are pinned in `supabase/config.toml` and travel with the deploy.
+
+- **Deploy one function:**
+  ```
+  npx supabase functions deploy <name>
+  ```
+- **Deploy all functions:**
+  ```
+  npx supabase functions deploy
+  ```
+- **Function secrets** (env vars like `SVEVE_USER`, `SVEVE_PASSWORD`, `SEND_SMS_HOOK_SECRET`) are set in the dashboard (Project Settings → Edge Functions → Secrets) or via:
+  ```
+  npx supabase secrets set KEY=value
+  ```
+  Never commit secret values to the repo. The CLI does not pull secrets down; treat the dashboard as the source of truth.
+- **Tail logs** while debugging:
+  ```
+  npx supabase functions logs <name> --tail
+  ```
+
+Don't forget to deploy after editing — pushing migrations does **not** redeploy functions.
+
 ## Creating new migrations
 
 When the user wants to change schema, create a new file rather than editing applied ones:
@@ -54,6 +78,9 @@ This creates `supabase/migrations/<timestamp>_<name>.sql`. Edit it, then push.
 | Log in (one-time, user must do this) | `npx supabase login` |
 | Link this repo to the cloud project | `npx supabase link --project-ref xfotwdryjaboowqcdhij` |
 | Apply pending migrations | `npx supabase db push` |
+| Deploy an edge function | `npx supabase functions deploy <name>` |
+| Set an edge function secret | `npx supabase secrets set KEY=value` |
+| Tail edge function logs | `npx supabase functions logs <name> --tail` |
 | Create a new migration file | `npx supabase migration new <name>` |
 | See what's pending vs. applied | `npx supabase migration list` |
 | Pull remote schema into local files | `npx supabase db pull` |
